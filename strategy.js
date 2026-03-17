@@ -2,10 +2,10 @@
  * "Hunt & Management" Strategy (Caza y Gestión)
  * 
  * 4 Phases:
- * 1. SCANNING: Triple confirmation (SMA trend + RSI strength + ATR volatility)
- * 2. EXECUTION: Protected entry with SL/TP and deal cancellation
- * 3. MANAGEMENT: Dynamic management (panic sell, break-even, trailing stop)
- * 4. DAMAGE CONTROL: Cooldown, daily limits, account protection
+ * 1. SCANNING: Triple confirmation (SMA trend + RSI strength + ATR volatility < 4.0)
+ * 2. EXECUTION: Protected entry with fixed SL ($1.00), dynamic manual TP ($0.40), Deal Cancellation (60m)
+ * 3. MANAGEMENT: Dynamic management (salvavidas a 45s, break-even a +$0.20, trailing stop a +$0.30)
+ * 4. DAMAGE CONTROL: Cooldown (2m win / 15m loss), Límites diarios (+$2 / -$5), Account protection (<$95)
  */
 
 const Strategy = (() => {
@@ -22,45 +22,50 @@ const Strategy = (() => {
 
         // RSI
         rsiPeriod: 14,
-        rsiBuyMin: 40,
-        rsiBuyMax: 60,
-        rsiOverbought: 70,
-        rsiOversold: 30,
+        rsiMin: 30,
+        rsiMax: 70,
 
         // ATR
         atrPeriod: 14,
-        atrMinThreshold: 0.005, // Minimum volatility to trade
+        atrMaxThreshold: 4.0,
 
         // Risk Management
-        stopLossMultiplier: 2.0,   // SL = ATR * multiplier
-        takeProfitMultiplier: 3.0, // TP = ATR * multiplier
-        dealCancellationDuration: '60m', // Cancel within 60 minutes
+        fixedStopLoss: 1.00,       // SL máximo -$1.00
+        fixedTakeProfit: 0.40,     // TP objetivo +$0.40
+        dealCancellationDuration: '60m',
 
         // Dynamic Management
-        trailingStopActivation: 1.5, // Activate trailing at 1.5x ATR profit
-        trailingStopDistance: 1.0,    // Trail at 1x ATR
-        breakEvenThreshold: 0.50,    // Move SL to break even after $0.50 profit
+        panicSellSeconds: 45,             
+        panicSellLossThreshold: -0.30,   // Perdiendo -$0.30 (15%) entre s45 y s60
+        breakEvenProfitThreshold: 0.20,  // Ganando +$0.20 mueve SL a $0.00
+        trailingStopActivation: 0.30,    // Ganando +$0.30 mueve SL a +$0.10
+        trailingStopTarget: 0.10,
 
         // Damage Control
-        maxConsecutiveLosses: 3,
-        cooldownDurationMs: 60000,  // 60 seconds cooldown
+        cooldownWinMs: 120000,     // 2 minutos
+        cooldownLossMs: 900000,    // 15 minutos
+        maxDailyProfit: 2.00,      // Meta +$2.00
+        maxDailyLoss: 5.00,        // Límite -$5.00
+        accountProtectionMinBalance: 95.00, 
         maxDailyTrades: 15,
-        maxDailyLoss: 15.00,      // Stop after $15 daily loss
-        accountProtectionPct: 0.20, // Stop if balance drops 20%
 
         // Signal requirements
-        minTicksForAnalysis: 55, // Need at least 55 ticks (for SMA 50 + buffer)
+        minTicksForAnalysis: 55, 
     };
 
     // ========== STATE ==========
     const state = {
-        phase: 'IDLE', // IDLE, SCANNING, EXECUTING, MANAGING, COOLDOWN
-        direction: null, // 'up' or 'down'
+        phase: 'IDLE', // IDLE, SCANNING, EXECUTING, MANAGING, COOLDOWN, HIBERNATING
+        direction: null, 
 
         // Active contract
         activeContract: null,
         contractId: null,
         entryPrice: null,
+        contractStartTime: 0,
+        manualStopLoss: null,
+        breakEvenMoved: false,
+        trailingMoved: false,
 
         // Session tracking
         sessionPnL: 0,
@@ -68,13 +73,12 @@ const Strategy = (() => {
         dailyLoss: 0,
         wins: 0,
         losses: 0,
-        consecutiveLosses: 0,
         startingBalance: 0,
 
         // Cooldown
         cooldownUntil: 0,
+        cooldownReason: '',
 
-        // Trailing stop
         highestProfit: 0,
 
         // Signals
@@ -87,11 +91,6 @@ const Strategy = (() => {
     };
 
     // ========== PHASE 1: SCANNING ==========
-    /**
-     * Analyze current market with triple confirmation
-     * @param {number[]} prices - Tick price history
-     * @returns {{ confirmed: boolean, direction: string|null, signals: object }}
-     */
     function analyzeSignals(prices) {
         if (prices.length < CONFIG.minTicksForAnalysis) {
             return { confirmed: false, direction: null, signals: state.signals };
@@ -110,25 +109,17 @@ const Strategy = (() => {
 
         state.signals.sma = smaDirection !== null;
 
-        // 2. RSI Strength
+        // 2. RSI Strength (Zona segura 30 a 70 independientemente de dirección)
         const currentRSI = Indicators.rsi(prices, CONFIG.rsiPeriod);
         let rsiOk = false;
-
         if (currentRSI !== null) {
-            if (smaDirection === 'up') {
-                // For buy, RSI should not be overbought
-                rsiOk = currentRSI >= CONFIG.rsiBuyMin && currentRSI < CONFIG.rsiOverbought;
-            } else if (smaDirection === 'down') {
-                // For sell, RSI should not be oversold
-                rsiOk = currentRSI <= CONFIG.rsiBuyMax && currentRSI > CONFIG.rsiOversold;
-            }
+            rsiOk = currentRSI >= CONFIG.rsiMin && currentRSI <= CONFIG.rsiMax;
         }
-
         state.signals.rsi = rsiOk;
 
-        // 3. ATR Volatility
+        // 3. ATR Volatility (Debe ser menor a 4.0)
         const currentATR = Indicators.atr(prices, CONFIG.atrPeriod);
-        const atrOk = currentATR !== null && currentATR >= CONFIG.atrMinThreshold;
+        const atrOk = currentATR !== null && currentATR < CONFIG.atrMaxThreshold;
         state.signals.atr = atrOk;
 
         state.signals.direction = smaDirection;
@@ -139,40 +130,24 @@ const Strategy = (() => {
     }
 
     // ========== PHASE 2: EXECUTION ==========
-    /**
-     * Calculate stop loss and take profit based on ATR
-     * @param {number[]} prices
-     * @returns {{ stopLoss: number, takeProfit: number }}
-     */
     function calculateRiskLevels(prices) {
-        const currentATR = Indicators.atr(prices, CONFIG.atrPeriod);
-        if (!currentATR) return { stopLoss: 1.00, takeProfit: 2.00 }; // defaults
-
-        const stopLoss = Math.max(0.50, +(currentATR * CONFIG.stopLossMultiplier * CONFIG.multiplier).toFixed(2));
-        const takeProfit = Math.max(1.00, +(currentATR * CONFIG.takeProfitMultiplier * CONFIG.multiplier).toFixed(2));
-
-        // Cap SL at stake
-        const cappedSL = Math.min(stopLoss, CONFIG.stake);
-
-        return { stopLoss: cappedSL, takeProfit };
+        return { stopLoss: CONFIG.fixedStopLoss, takeProfit: CONFIG.fixedTakeProfit };
     }
 
-    /**
-     * Execute a trade
-     * @param {string} direction - 'up' or 'down'
-     * @param {number[]} prices
-     * @returns {Promise<object>} Buy response
-     */
     async function executeTrade(direction, prices) {
-        // Pre-checks
         if (!canTrade()) {
-            throw new Error('Trading conditions not met');
+            throw new Error('Trading conditions (or limits) not met');
         }
 
-        const { stopLoss, takeProfit } = calculateRiskLevels(prices);
+        const { stopLoss } = calculateRiskLevels(prices);
 
         state.phase = 'EXECUTING';
         state.direction = direction;
+        state.contractStartTime = Date.now();
+        state.breakEvenMoved = false;
+        state.trailingMoved = false;
+        state.manualStopLoss = -stopLoss; // Inicializado en -$1.00 USD
+        state.highestProfit = 0;
 
         try {
             const result = await DerivWS.buyMultiplier(
@@ -182,8 +157,7 @@ const Strategy = (() => {
                 direction,
                 {
                     stop_loss: stopLoss,
-                    take_profit: takeProfit
-                    // NOTE: API doesn't allow both take_profit and deal_cancellation.
+                    deal_cancellation_duration: CONFIG.dealCancellationDuration,
                 }
             );
 
@@ -191,12 +165,9 @@ const Strategy = (() => {
                 state.contractId = result.buy.contract_id;
                 state.entryPrice = result.buy.buy_price;
                 state.phase = 'MANAGING';
-                state.highestProfit = 0;
                 state.dailyTrades++;
 
-                // Subscribe to contract updates
                 DerivWS.subscribeOpenContract(result.buy.contract_id);
-
                 return result.buy;
             }
 
@@ -208,19 +179,46 @@ const Strategy = (() => {
     }
 
     // ========== PHASE 3: DYNAMIC MANAGEMENT ==========
-    /**
-     * Handle contract update - apply dynamic management
-     * @param {object} contract - Proposal open contract data
-     */
     function manageContract(contract) {
         if (state.phase !== 'MANAGING') return null;
 
         state.activeContract = contract;
         const profit = parseFloat(contract.profit) || 0;
+        const elapsedSeconds = (Date.now() - state.contractStartTime) / 1000;
 
-        // Track highest profit for trailing stop
         if (profit > state.highestProfit) {
             state.highestProfit = profit;
+        }
+
+        // 1. Take Profit Fijo Manual (+$0.40)
+        if (profit >= CONFIG.fixedTakeProfit) {
+            panicSell();
+            return { profit, action: 'Take Profit Fijo' };
+        }
+
+        // 2. El Salvavidas (Segundo 45 a 60) perdiendo -$0.30
+        if (elapsedSeconds >= CONFIG.panicSellSeconds && elapsedSeconds <= 60 && profit <= CONFIG.panicSellLossThreshold) {
+            panicSell();
+            return { profit, action: 'Salvavidas (Segundo 45)' };
+        }
+
+        // 3. Break-Even (Ganancia +$0.20 -> SL $0.00)
+        if (profit >= CONFIG.breakEvenProfitThreshold && !state.breakEvenMoved) {
+            state.manualStopLoss = 0.00;
+            state.breakEvenMoved = true;
+            // Lo gestionamos de forma manual ya que deal_cancellation podría evitar actualizaciones API.
+        }
+
+        // 4. Trailing Stop Loss (Ganancia +$0.30 -> SL +$0.10)
+        if (profit >= CONFIG.trailingStopActivation && !state.trailingMoved) {
+            state.manualStopLoss = CONFIG.trailingStopTarget;
+            state.trailingMoved = true;
+        }
+
+        // 5. Validar Stop Loss Dinámico Interno
+        if (state.manualStopLoss !== null && profit <= state.manualStopLoss) {
+            panicSell();
+            return { profit, action: 'Stop Loss Manual / Trailing' };
         }
 
         return {
@@ -232,61 +230,47 @@ const Strategy = (() => {
         };
     }
 
-    /**
-     * Panic Sell - immediately close at market
-     */
     async function panicSell() {
         if (!state.contractId) throw new Error('No active contract');
-        state.phase = 'IDLE';
+        state.phase = 'IDLE'; 
         return DerivWS.sellContract(state.contractId);
     }
 
-    /**
-     * Move stop loss to break even
-     */
     async function moveToBreakEven() {
         if (!state.contractId) throw new Error('No active contract');
-        // Set SL to 0 (entry price essentially)
-        return DerivWS.updateContract(state.contractId, {
-            stop_loss: 0.01, // minimal SL
-        });
+        state.manualStopLoss = 0.00;
+        state.breakEvenMoved = true;
     }
 
     // ========== PHASE 4: DAMAGE CONTROL ==========
-    /**
-     * Check if trading is allowed
-     */
     function canTrade() {
-        if (state.phase === 'MANAGING' || state.phase === 'EXECUTING') return false;
-        if (state.dailyTrades >= CONFIG.maxDailyTrades) return false;
+        if (state.phase === 'MANAGING' || state.phase === 'EXECUTING' || state.phase === 'HIBERNATING') return false;
+        if (state.sessionPnL >= CONFIG.maxDailyProfit) return false;
         if (state.dailyLoss >= CONFIG.maxDailyLoss) return false;
-        if (state.consecutiveLosses >= CONFIG.maxConsecutiveLosses) return false;
+        if (state.dailyTrades >= CONFIG.maxDailyTrades) return false;
         if (Date.now() < state.cooldownUntil) return false;
         return true;
     }
 
-    /**
-     * Record trade result
-     * @param {number} pnl - Profit or loss from trade
-     */
     function recordTradeResult(pnl) {
         state.sessionPnL += pnl;
 
         if (pnl >= 0) {
             state.wins++;
-            state.consecutiveLosses = 0;
+            state.cooldownUntil = Date.now() + CONFIG.cooldownWinMs; // 2 min
+            state.cooldownReason = 'Ganada -> 2 mins';
         } else {
             state.losses++;
             state.dailyLoss += Math.abs(pnl);
-            state.consecutiveLosses++;
+            state.cooldownUntil = Date.now() + CONFIG.cooldownLossMs; // 15 min
+            state.cooldownReason = 'Perdida -> 15 mins';
         }
 
-        // Trigger cooldown on consecutive losses
-        if (state.consecutiveLosses >= CONFIG.maxConsecutiveLosses) {
-            state.cooldownUntil = Date.now() + CONFIG.cooldownDurationMs;
-            state.phase = 'COOLDOWN';
+        // Control de hibernación general
+        if (state.sessionPnL >= CONFIG.maxDailyProfit || state.dailyLoss >= CONFIG.maxDailyLoss) {
+            state.phase = 'HIBERNATING';
         } else {
-            state.phase = 'SCANNING';
+            state.phase = 'COOLDOWN';
         }
 
         state.contractId = null;
@@ -295,53 +279,34 @@ const Strategy = (() => {
         state.highestProfit = 0;
     }
 
-    /**
-     * Check account protection
-     * @param {number} currentBalance
-     * @returns {boolean} true if account is protected (should stop)
-     */
     function checkAccountProtection(currentBalance) {
-        if (state.startingBalance <= 0) return false;
-        const dropPct = (state.startingBalance - currentBalance) / state.startingBalance;
-        return dropPct >= CONFIG.accountProtectionPct;
+        return currentBalance < CONFIG.accountProtectionMinBalance;
     }
 
-    /**
-     * Get win rate
-     */
     function getWinRate() {
         const total = state.wins + state.losses;
         if (total === 0) return 0;
         return ((state.wins / total) * 100).toFixed(0);
     }
 
-    /**
-     * Start the bot
-     */
     function start(currentBalance) {
         state.phase = 'SCANNING';
         state.startingBalance = currentBalance;
     }
 
-    /**
-     * Stop the bot
-     */
     function stop() {
         state.phase = 'IDLE';
     }
 
-    /**
-     * Reset daily stats
-     */
     function resetDaily() {
         state.dailyTrades = 0;
         state.dailyLoss = 0;
-        state.consecutiveLosses = 0;
+        state.wins = 0;
+        state.losses = 0;
+        state.sessionPnL = 0;
+        state.phase = 'IDLE';
     }
 
-    /**
-     * Get signal strength (0-5)
-     */
     function getSignalStrength(prices) {
         let strength = 0;
         if (prices.length < CONFIG.minTicksForAnalysis) return 0;

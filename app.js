@@ -35,7 +35,7 @@
     const sessionPnLEl = $('#sessionPnL');
     const winRateEl = $('#winRate');
     const tradesTodayEl = $('#tradesToday');
-    const consecLossesEl = $('#consecLosses');
+    const dailyLossEl = $('#dailyLoss');
     const botStatusEl = $('#botStatus');
     const signalBars = $('#signalBars');
 
@@ -116,7 +116,7 @@
 
         winRateEl.textContent = Strategy.getWinRate() + '%';
         tradesTodayEl.textContent = s.dailyTrades + ' / ' + Strategy.CONFIG.maxDailyTrades;
-        consecLossesEl.textContent = s.consecutiveLosses + ' / ' + Strategy.CONFIG.maxConsecutiveLosses;
+        if(dailyLossEl) dailyLossEl.textContent = '$' + s.dailyLoss.toFixed(2) + ' / $' + Strategy.CONFIG.maxDailyLoss.toFixed(2);
 
         // Bot status
         const phase = s.phase;
@@ -127,6 +127,7 @@
             'EXECUTING': 'var(--color-warning)',
             'MANAGING': 'var(--accent-primary)',
             'COOLDOWN': 'var(--color-loss)',
+            'HIBERNATING': 'var(--color-loss)',
         }[phase] || 'var(--text-muted)';
     }
 
@@ -222,22 +223,18 @@
 
         // Check account protection
         if (Strategy.checkAccountProtection(currentBalance)) {
-            log('🛑 ACCOUNT PROTECTION: Balance dropped 20%. Bot stopped.', 'error');
+            log(`🛑 ACCOUNT PROTECTION: Balance dropped below $${Strategy.CONFIG.accountProtectionMinBalance}. Bot stopped.`, 'error');
             stopBot();
             return;
         }
 
         // Check daily limits
         if (!Strategy.canTrade()) {
-            if (Strategy.state.consecutiveLosses >= Strategy.CONFIG.maxConsecutiveLosses) {
-                log('❄️ Consecutive loss limit hit. Entering cooldown...', 'warning');
-                showCooldown(Strategy.CONFIG.cooldownDurationMs);
-                Strategy.state.phase = 'COOLDOWN';
+            if (Strategy.state.phase === 'HIBERNATING') {
+                log('💤 HIBERNATING: Meta de ganancia o límite de pérdida alcanzado. Bot detenido por hoy.', 'warning');
+                stopBot();
             } else if (Strategy.state.dailyTrades >= Strategy.CONFIG.maxDailyTrades) {
                 log('📊 Daily trade limit reached. Bot stopped.', 'warning');
-                stopBot();
-            } else if (Strategy.state.dailyLoss >= Strategy.CONFIG.maxDailyLoss) {
-                log('💸 Daily loss limit reached. Bot stopped.', 'error');
                 stopBot();
             }
             updateStats();
@@ -338,9 +335,13 @@
                 updateContractPanel(null);
                 updateStats();
 
-                // Check cooldown
+                // Check cooldown or hibernation
                 if (Strategy.state.phase === 'COOLDOWN') {
-                    showCooldown(Strategy.CONFIG.cooldownDurationMs);
+                    const duration = Strategy.state.cooldownUntil - Date.now();
+                    if (duration > 0) showCooldown(duration);
+                } else if (Strategy.state.phase === 'HIBERNATING') {
+                    stopBot();
+                    log('💤 Bot Hibernating.', 'info');
                 }
             } else {
                 Strategy.manageContract(contract);
