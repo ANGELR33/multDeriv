@@ -156,8 +156,9 @@ const Strategy = (() => {
                 CONFIG.multiplier,
                 direction,
                 {
-                    stop_loss: stopLoss,
                     deal_cancellation_duration: CONFIG.dealCancellationDuration,
+                    // NOTE: API doesn't allow stop_loss/take_profit if using deal_cancellation. 
+                    // Managed locally via 'manualStopLoss' and 'fixedTakeProfit'.
                 }
             );
 
