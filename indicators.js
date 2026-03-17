@@ -118,6 +118,78 @@ const Indicators = (() => {
         return result;
     }
 
+    /**
+     * EMA (Exponential Moving Average)
+     */
+    function ema(data, period) {
+        if (data.length < period) return null;
+        let k = 2 / (period + 1);
+        
+        // Start with SMA as initial EMA
+        let initialSma = sma(data.slice(0, period), period);
+        let currentEma = initialSma;
+        
+        for (let i = period; i < data.length; i++) {
+            currentEma = (data[i] - currentEma) * k + currentEma;
+        }
+        return currentEma;
+    }
+
+    /**
+     * MACD
+     * Returns { macdLine, signalLine, histogram }
+     */
+    function macd(data, fast=12, slow=26, signalPeriod=9) {
+        if (data.length < slow + signalPeriod) return null;
+        
+        let macdLineSeries = [];
+        for (let i = slow; i <= data.length; i++) {
+            let slice = data.slice(0, i);
+            let fastEma = ema(slice, fast);
+            let slowEma = ema(slice, slow);
+            if(fastEma !== null && slowEma !== null) {
+               macdLineSeries.push(fastEma - slowEma);
+            }
+        }
+        
+        if (macdLineSeries.length < signalPeriod) return null;
+        
+        let macdLine = macdLineSeries[macdLineSeries.length - 1];
+        let signalLine = ema(macdLineSeries, signalPeriod);
+        
+        if(signalLine === null) return null;
+        
+        return {
+            macdLine: macdLine,
+            signalLine: signalLine,
+            histogram: macdLine - signalLine
+        };
+    }
+
+    /**
+     * Bollinger Bands
+     * Returns { upper, middle, lower }
+     */
+    function bollingerBands(data, period=20, stdDevMult=2) {
+        if (data.length < period) return null;
+        
+        const slice = data.slice(-period);
+        const middle = sma(slice, period); // SMA
+        
+        // Calculate Standard Deviation
+        let variance = 0;
+        for (let i = 0; i < slice.length; i++) {
+            variance += Math.pow(slice[i] - middle, 2);
+        }
+        let stdDev = Math.sqrt(variance / period);
+        
+        return {
+            upper: middle + (stdDev * stdDevMult),
+            middle: middle,
+            lower: middle - (stdDev * stdDevMult)
+        };
+    }
+
     return {
         sma,
         smaSeries,
@@ -125,5 +197,8 @@ const Indicators = (() => {
         rsiSeries,
         atr,
         atrSeries,
+        ema,
+        macd,
+        bollingerBands
     };
 })();

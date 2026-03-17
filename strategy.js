@@ -29,6 +29,13 @@ const Strategy = (() => {
         atrPeriod: 14,
         atrMaxThreshold: 4.0,
 
+        // MACD & Bollinger Bounds (AI variables)
+        macdFast: 12,
+        macdSlow: 26,
+        macdSignal: 9,
+        bbPeriod: 20,
+        bbStdDev: 2,
+
         // Risk Management
         fixedStopLoss: 1.00,       // SL máximo -$1.00
         fixedTakeProfit: 0.40,     // TP objetivo +$0.40
@@ -127,53 +134,85 @@ const Strategy = (() => {
 
         state.signals.direction = smaDirection;
 
+        state.signals.direction = smaDirection;
+
         // ==========================================
-        // 4. MOTOR DE INTELIGENCIA / FUZZY LOGIC
+        // 4. MOTOR DE INTELIGENCIA / FUZZY LOGIC V2 (Deep Analysis)
         // ==========================================
         let confidenceScore = 0;
+        
+        // Obtenemos los nuevos indicadores IA
+        const currentMACD = Indicators.macd(prices, CONFIG.macdFast, CONFIG.macdSlow, CONFIG.macdSignal);
+        const currentBB = Indicators.bollingerBands(prices, CONFIG.bbPeriod, CONFIG.bbStdDev);
+        const currentPrice = prices[prices.length - 1];
 
-        // Peso 1: SMA Trend (30 puntos)
+        // --- FILTRO 1: Tendencia Mayor (SMA) [Max: 20 pts] ---
         if (smaConfirmed && smaDirection) {
-            confidenceScore += 30;
+            confidenceScore += 15;
+            // Si el precio actual está acompañando la tendencia alejándose de la media
+            if (smaDirection === 'up' && currentPrice > smaFast) confidenceScore += 5;
+            if (smaDirection === 'down' && currentPrice < smaFast) confidenceScore += 5;
         }
 
-        // Peso 2: RSI Strength (25 puntos)
-        // Se otorgan si no está sobrecomprado/sobrevendido
+        // --- FILTRO 2: Fuerza Relativa (RSI) [Max: 20 pts] ---
         if (rsiOk) {
-            confidenceScore += 25;
-            // Bonus: si está en un "Sweet spot" (45-55) y rompiendo a favor del trend
-            if (currentRSI >= 45 && currentRSI <= 55) {
-                confidenceScore += 5; 
+            confidenceScore += 10;
+            // Sweet spot direccional (45-55) o favoreciendo direccionalidad
+            if (smaDirection === 'up' && currentRSI > 50 && currentRSI < 65) confidenceScore += 10;
+            else if (smaDirection === 'down' && currentRSI < 50 && currentRSI > 35) confidenceScore += 10;
+            else confidenceScore += 5; // Aceptable pero no ideal
+        }
+
+        // --- FILTRO 3: Convergencia/Divergencia (MACD) [Max: 25 pts] ---
+        if (currentMACD !== null && smaDirection) {
+            let macdOk = false;
+            if (smaDirection === 'up' && currentMACD.histogram > 0) {
+                confidenceScore += 15;
+                macdOk = true;
+            } else if (smaDirection === 'down' && currentMACD.histogram < 0) {
+                confidenceScore += 15;
+                macdOk = true;
+            }
+            
+            // Fuerte momentum de cruce
+            if (macdOk && Math.abs(currentMACD.histogram) > 0.05) {
+                confidenceScore += 10;
             }
         }
 
-        // Peso 3: ATR Volatility (20 puntos)
+        // --- FILTRO 4: Canal de Volatilidad (Bollinger) [Max: 15 pts] ---
+        if (currentBB !== null && smaDirection) {
+            // Evitar comprar si el precio ya rompió la banda superior (sobreextendido)
+            // Evitar vender si rompió la banda inferior.
+            const bandwidth = currentBB.upper - currentBB.lower;
+            
+            if (smaDirection === 'up' && currentPrice < currentBB.upper) {
+                confidenceScore += 15; // Aún hay espacio para subir
+            } else if (smaDirection === 'down' && currentPrice > currentBB.lower) {
+                confidenceScore += 15; // Aún hay espacio para caer
+            }
+        }
+
+        // --- FILTRO 5: Liquidez/Volatilidad Sana (ATR) [Max: 10 pts] ---
         if (atrOk) {
-            confidenceScore += 20;
-            // Penalización por mercado "muerto" (ATR demasiado bajo, ej. < 0.005)
-            if (currentATR < 0.005) {
-                confidenceScore -= 10;
+            if (currentATR >= 0.005) { // Liquidez sana
+                confidenceScore += 10;
+            } else {
+                confidenceScore += 0; // Mercado muy aburrido
             }
         }
 
-        // Peso 4: Momentum / Price Action de corto plazo (20 puntos)
-        // Evaluamos los últimos 3 ticks para ver si empujan a favor de la tendencia
-        let momentumScore = 0;
+        // --- FILTRO 6: Price Action / Momentum de 3 Ticks [Max: 10 pts] ---
         if (prices.length >= 4 && smaDirection) {
-            const t0 = prices[prices.length - 1];
             const t1 = prices[prices.length - 2];
             const t2 = prices[prices.length - 3];
             
-            if (smaDirection === 'up' && t0 > t1 && t1 >= t2) {
-                momentumScore = 20;
-            } else if (smaDirection === 'down' && t0 < t1 && t1 <= t2) {
-                momentumScore = 20;
-            } else {
-                // Mercado dudando en micro-tendencia
-                momentumScore = 0;
+            if (smaDirection === 'up' && currentPrice > t1 && t1 >= t2) {
+                confidenceScore += 10;
+            } else if (smaDirection === 'down' && currentPrice < t1 && t1 <= t2) {
+                confidenceScore += 10;
             }
         }
-        confidenceScore += momentumScore;
 
         // Aseguramos que el score se mantenga entre 0 y 100
         state.aiConfidence = Math.max(0, Math.min(100, confidenceScore));
@@ -181,7 +220,7 @@ const Strategy = (() => {
         // El bot AHORA requiere que la "IA" confíe al menos en un % establecido
         const confirmed = state.signals.sma && state.signals.rsi && state.signals.atr && state.aiConfidence >= CONFIG.minAIConfidence;
 
-        return { confirmed, direction: smaDirection, signals: { ...state.signals }, rsi: currentRSI, atr: currentATR, aiConfidence: state.aiConfidence };
+        return { confirmed, direction: smaDirection, signals: { ...state.signals }, rsi: currentRSI, atr: currentATR, aiConfidence: state.aiConfidence, macd: currentMACD };
     }
 
     // ========== PHASE 2: EXECUTION ==========
