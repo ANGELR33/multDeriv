@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Deriv Multiplier Trading Bot - Automated Hunt & Management Strategy for Volatility 10 Index">
+    <title>DerivMULT | Automated Trading Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+    <!-- Connection Modal -->
+    <div id="connectModal" class="modal-overlay active">
+        <div class="modal-card">
+            <div class="modal-logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 48 48" fill="none">
+                        <circle cx="24" cy="24" r="22" stroke="url(#grad1)" stroke-width="3"/>
+                        <path d="M16 32L24 16L32 32" stroke="url(#grad1)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 26H29" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="24" cy="12" r="2" fill="#00d4aa"/>
+                        <defs>
+                            <linearGradient id="grad1" x1="0" y1="0" x2="48" y2="48">
+                                <stop offset="0%" stop-color="#00d4aa"/>
+                                <stop offset="100%" stop-color="#7b61ff"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1>DerivMULT</h1>
+                <p class="modal-subtitle">Automated Hunt & Management Strategy</p>
+            </div>
+            <div class="modal-form">
+                <div class="input-group">
+                    <label for="apiToken">API Token</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="apiToken" placeholder="Enter your Deriv API token" autocomplete="off">
+                        <button id="togglePassword" class="toggle-pass" type="button">👁️</button>
+                    </div>
+                    <small>Use a token with <strong>Trade</strong> & <strong>Read</strong> permissions</small>
+                </div>
+                <div class="input-group">
+                    <label for="appId">App ID</label>
+                    <input type="text" id="appId" placeholder="Your Deriv App ID" value="1089">
+                    <small>Default test App ID: 1089</small>
+                </div>
+                <div class="account-type-group">
+                    <label>Account Type</label>
+                    <div class="toggle-switch-group">
+                        <button class="toggle-btn active" data-type="demo">🧪 Demo</button>
+                        <button class="toggle-btn" data-type="real">💰 Real</button>
+                    </div>
+                </div>
+                <button id="connectBtn" class="btn-connect">
+                    <span class="btn-text">Connect to Deriv</span>
+                    <span class="btn-loader" style="display:none;">
+                        <span class="spinner"></span> Connecting...
+                    </span>
+                </button>
+                <p id="connectError" class="error-msg" style="display:none;"></p>
+            </div>
+            <div class="modal-footer">
+                <span>V10 Index • 400x Multiplier • $2.00 Stake</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="dashboard" style="display:none;">
+        <!-- Top Navigation Bar -->
+        <header class="top-bar">
+            <div class="top-left">
+                <div class="logo-small">
+                    <svg viewBox="0 0 48 48" fill="none" width="28" height="28">
+                        <circle cx="24" cy="24" r="22" stroke="url(#grad2)" stroke-width="3"/>
+                        <path d="M16 32L24 16L32 32" stroke="url(#grad2)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M19 26H29" stroke="url(#grad2)" stroke-width="2" stroke-linecap="round"/>
+                        <defs>
+                            <linearGradient id="grad2" x1="0" y1="0" x2="48" y2="48">
+                                <stop offset="0%" stop-color="#00d4aa"/>
+                                <stop offset="100%" stop-color="#7b61ff"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <span>DerivMULT</span>
+                </div>
+                <div class="connection-badge" id="connectionStatus">
+                    <span class="status-dot connected"></span>
+                    <span>Connected</span>
+                </div>
+            </div>
+            <div class="top-center">
+                <div class="market-info">
+                    <span class="market-symbol">R_10</span>
+                    <span class="market-name">Volatility 10 Index</span>
+                    <span class="market-price" id="currentPrice">--</span>
+                    <span class="market-change" id="priceChange">0.00%</span>
+                </div>
+            </div>
+            <div class="top-right">
+                <div class="balance-display">
+                    <span class="balance-label">Balance</span>
+                    <span class="balance-amount" id="accountBalance">$--</span>
+                    <span class="account-type-badge" id="accountTypeBadge">DEMO</span>
+                </div>
+                <button id="disconnectBtn" class="btn-disconnect" title="Disconnect">⏻</button>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <span class="stat-label">Session P&L</span>
+                <span class="stat-value" id="sessionPnL">$0.00</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Win Rate</span>
+                <span class="stat-value" id="winRate">0%</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Trades Today</span>
+                <span class="stat-value" id="tradesToday">0 / 15</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Consecutive Losses</span>
+                <span class="stat-value" id="consecLosses">0 / 3</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Bot Status</span>
+                <span class="stat-value status-text" id="botStatus">IDLE</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Signal Strength</span>
+                <div class="signal-bars" id="signalBars">
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                    <span class="bar"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel: Chart -->
+            <div class="chart-panel">
+                <div class="chart-header">
+                    <h2>📊 Live Chart — R_10</h2>
+                    <div class="chart-controls">
+                        <div class="indicator-toggles">
+                            <button class="ind-btn active" data-indicator="sma20">SMA 20</button>
+                            <button class="ind-btn active" data-indicator="sma50">SMA 50</button>
+                            <button class="ind-btn active" data-indicator="rsi">RSI</button>
+                            <button class="ind-btn active" data-indicator="atr">ATR</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="priceChart"></canvas>
+                </div>
+                <div class="indicator-panels">
+                    <div class="indicator-panel" id="rsiPanel">
+                        <div class="indicator-label">RSI <span id="rsiValue">--</span></div>
+                        <canvas id="rsiChart"></canvas>
+                    </div>
+                    <div class="indicator-panel" id="atrPanel">
+                        <div class="indicator-label">ATR <span id="atrValue">--</span></div>
+                        <canvas id="atrChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Signal Analysis -->
+                <div class="signal-analysis">
+                    <h3>🎯 Triple Confirmation</h3>
+                    <div class="confirmations">
+                        <div class="confirm-item" id="confirmSMA">
+                            <span class="confirm-icon">⏳</span>
+                            <span class="confirm-label">SMA Trend</span>
+                            <span class="confirm-status">Waiting</span>
+                        </div>
+                        <div class="confirm-item" id="confirmRSI">
+                            <span class="confirm-icon">⏳</span>
+                            <span class="confirm-label">RSI Strength</span>
+                            <span class="confirm-status">Waiting</span>
+                        </div>
+                        <div class="confirm-item" id="confirmATR">
+                            <span class="confirm-icon">⏳</span>
+                            <span class="confirm-label">ATR Volatility</span>
+                            <span class="confirm-status">Waiting</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Controls + Logs -->
+            <div class="right-panel">
+                <!-- Trading Controls -->
+                <div class="control-panel">
+                    <h3>🤖 Trading Controls</h3>
+                    <div class="control-row">
+                        <div class="control-group">
+                            <label>Stake</label>
+                            <div class="value-display">$2.00</div>
+                        </div>
+                        <div class="control-group">
+                            <label>Multiplier</label>
+                            <div class="value-display">400x</div>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <div class="control-group">
+                            <label>Stop Loss</label>
+                            <div class="value-display" id="slDisplay">Auto</div>
+                        </div>
+                        <div class="control-group">
+                            <label>Take Profit</label>
+                            <div class="value-display" id="tpDisplay">Auto</div>
+                        </div>
+                    </div>
+                    <div class="bot-controls">
+                        <button id="startBot" class="btn-action btn-start">
+                            ▶ START BOT
+                        </button>
+                        <button id="stopBot" class="btn-action btn-stop" disabled>
+                            ⏹ STOP BOT
+                        </button>
+                    </div>
+                    <div class="emergency-controls">
+                        <button id="panicSell" class="btn-action btn-panic" disabled>
+                            🚨 PANIC SELL
+                        </button>
+                        <button id="breakEven" class="btn-action btn-breakeven" disabled>
+                            ⚖️ BREAK EVEN
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Contract -->
+                <div class="contract-panel" id="contractPanel" style="display:none;">
+                    <h3>📝 Active Contract</h3>
+                    <div class="contract-info">
+                        <div class="contract-row">
+                            <span>Contract ID</span>
+                            <span id="contractId">--</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Direction</span>
+                            <span id="contractDir">--</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Entry Price</span>
+                            <span id="entryPrice">--</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Current P&L</span>
+                            <span id="contractPnL" class="pnl-value">$0.00</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Stop Loss</span>
+                            <span id="contractSL">--</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Take Profit</span>
+                            <span id="contractTP">--</span>
+                        </div>
+                        <div class="contract-row">
+                            <span>Cancellation</span>
+                            <span id="contractCancel">--</span>
+                        </div>
+                    </div>
+                    <div class="pnl-bar-container">
+                        <div class="pnl-bar" id="pnlBar"></div>
+                    </div>
+                </div>
+
+                <!-- Trade Log -->
+                <div class="log-panel">
+                    <div class="log-header">
+                        <h3>📋 Activity Log</h3>
+                        <button id="clearLog" class="btn-clear">Clear</button>
+                    </div>
+                    <div class="log-entries" id="logEntries">
+                        <div class="log-entry info">
+                            <span class="log-time">--:--:--</span>
+                            <span class="log-msg">System initialized. Waiting for connection...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cooldown Overlay -->
+        <div id="cooldownOverlay" class="cooldown-overlay" style="display:none;">
+            <div class="cooldown-content">
+                <div class="cooldown-icon">❄️</div>
+                <h2>Cooldown Active</h2>
+                <p>Consecutive losses detected. Cooling down...</p>
+                <div class="cooldown-timer" id="cooldownTimer">60s</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="indicators.js"></script>
+    <script src="websocket.js"></script>
+    <script src="strategy.js"></script>
+    <script src="chart.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
