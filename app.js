@@ -314,9 +314,18 @@
         const analysis = Strategy.analyzeSignals(prices);
         updateConfirmations(analysis.signals);
         updateSignalBars(Strategy.getSignalStrength(prices));
+        
+        // Update AI Confidence Display if element exists
+        const aiConfidenceEl = document.getElementById('aiConfidenceValue');
+        if (aiConfidenceEl) {
+            aiConfidenceEl.textContent = analysis.aiConfidence + '%';
+            if(analysis.aiConfidence >= Strategy.CONFIG.minAIConfidence) aiConfidenceEl.style.color = 'var(--color-profit)';
+            else if(analysis.aiConfidence >= 50) aiConfidenceEl.style.color = 'var(--color-warning)';
+            else aiConfidenceEl.style.color = 'var(--color-loss)';
+        }
 
         if (analysis.confirmed && analysis.direction) {
-            log(`🎯 TRIPLE CONFIRMATION! Signal: ${analysis.direction.toUpperCase()} | RSI: ${analysis.rsi?.toFixed(1)} | ATR: ${analysis.atr?.toFixed(5)}`, 'success');
+            log(`🧠 AI CONFIDENCE [${analysis.aiConfidence}%] — 🎯 Signal: ${analysis.direction.toUpperCase()} | RSI: ${analysis.rsi?.toFixed(1)}`, 'success');
 
             // Calculate and display risk levels
             const { stopLoss, takeProfit } = Strategy.calculateRiskLevels(prices);

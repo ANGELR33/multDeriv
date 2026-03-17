@@ -49,8 +49,10 @@ const Strategy = (() => {
         accountProtectionMinBalance: 95.00, 
         maxDailyTrades: 15,
 
-        // Signal requirements
         minTicksForAnalysis: 55, 
+        
+        // AI Logic
+        minAIConfidence: 85, // Mínimo de puntaje IA (0-100) para autorizar compra
     };
 
     // ========== STATE ==========
@@ -81,13 +83,14 @@ const Strategy = (() => {
 
         highestProfit: 0,
 
-        // Signals
+        // Signals & AI
         signals: {
             sma: false,
             rsi: false,
             atr: false,
             direction: null,
         },
+        aiConfidence: 0,
     };
 
     // ========== PHASE 1: SCANNING ==========
@@ -124,9 +127,61 @@ const Strategy = (() => {
 
         state.signals.direction = smaDirection;
 
-        const confirmed = state.signals.sma && state.signals.rsi && state.signals.atr;
+        // ==========================================
+        // 4. MOTOR DE INTELIGENCIA / FUZZY LOGIC
+        // ==========================================
+        let confidenceScore = 0;
 
-        return { confirmed, direction: smaDirection, signals: { ...state.signals }, rsi: currentRSI, atr: currentATR };
+        // Peso 1: SMA Trend (30 puntos)
+        if (smaConfirmed && smaDirection) {
+            confidenceScore += 30;
+        }
+
+        // Peso 2: RSI Strength (25 puntos)
+        // Se otorgan si no está sobrecomprado/sobrevendido
+        if (rsiOk) {
+            confidenceScore += 25;
+            // Bonus: si está en un "Sweet spot" (45-55) y rompiendo a favor del trend
+            if (currentRSI >= 45 && currentRSI <= 55) {
+                confidenceScore += 5; 
+            }
+        }
+
+        // Peso 3: ATR Volatility (20 puntos)
+        if (atrOk) {
+            confidenceScore += 20;
+            // Penalización por mercado "muerto" (ATR demasiado bajo, ej. < 0.005)
+            if (currentATR < 0.005) {
+                confidenceScore -= 10;
+            }
+        }
+
+        // Peso 4: Momentum / Price Action de corto plazo (20 puntos)
+        // Evaluamos los últimos 3 ticks para ver si empujan a favor de la tendencia
+        let momentumScore = 0;
+        if (prices.length >= 4 && smaDirection) {
+            const t0 = prices[prices.length - 1];
+            const t1 = prices[prices.length - 2];
+            const t2 = prices[prices.length - 3];
+            
+            if (smaDirection === 'up' && t0 > t1 && t1 >= t2) {
+                momentumScore = 20;
+            } else if (smaDirection === 'down' && t0 < t1 && t1 <= t2) {
+                momentumScore = 20;
+            } else {
+                // Mercado dudando en micro-tendencia
+                momentumScore = 0;
+            }
+        }
+        confidenceScore += momentumScore;
+
+        // Aseguramos que el score se mantenga entre 0 y 100
+        state.aiConfidence = Math.max(0, Math.min(100, confidenceScore));
+
+        // El bot AHORA requiere que la "IA" confíe al menos en un % establecido
+        const confirmed = state.signals.sma && state.signals.rsi && state.signals.atr && state.aiConfidence >= CONFIG.minAIConfidence;
+
+        return { confirmed, direction: smaDirection, signals: { ...state.signals }, rsi: currentRSI, atr: currentATR, aiConfidence: state.aiConfidence };
     }
 
     // ========== PHASE 2: EXECUTION ==========
