@@ -194,6 +194,33 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- History Panel -->
+                <div class="history-panel">
+                    <div class="history-header">
+                        <h3>📂 Trade History</h3>
+                        <button id="clearHistory" class="btn-clear ind-btn">Clear All</button>
+                    </div>
+                    <div class="history-table-container">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>ID</th>
+                                    <th>Type</th>
+                                    <th>Stake</th>
+                                    <th>Multiplier</th>
+                                    <th>Entry</th>
+                                    <th>Status</th>
+                                    <th>P&L</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <!-- Dynamic rows go here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Right Panel: Controls + Logs -->

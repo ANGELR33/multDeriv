@@ -12,6 +12,7 @@
     let scanInterval = null;
     let currentBalance = 0;
     let accountType = 'demo';
+    let tradeHistory = JSON.parse(localStorage.getItem('derivmult_history')) || [];
 
     // ========== DOM REFS ==========
     const $ = (sel) => document.querySelector(sel);
@@ -71,6 +72,10 @@
     // Log
     const logEntries = $('#logEntries');
     const clearLogBtn = $('#clearLog');
+
+    // History
+    const historyBody = $('#historyBody');
+    const clearHistoryBtn = $('#clearHistory');
 
     // Indicator toggles
     const indBtns = $$('.ind-btn');
@@ -200,6 +205,70 @@
             : 'linear-gradient(90deg, #c62828, #ff5252)';
     }
 
+    function saveHistory() {
+        localStorage.setItem('derivmult_history', JSON.stringify(tradeHistory));
+    }
+
+    function renderHistory() {
+        if (!historyBody) return;
+        historyBody.innerHTML = '';
+        
+        // render backwards (newest first)
+        const displayHistory = [...tradeHistory].reverse();
+        displayHistory.forEach(trade => {
+            const tr = document.createElement('tr');
+            
+            const pnlColor = trade.pnl >= 0 ? 'profit' : 'loss';
+            const sign = trade.pnl >= 0 ? '+$' : '-$';
+            const pnlText = trade.pnl !== 0 ? (sign + Math.abs(trade.pnl).toFixed(2)) : '$0.00';
+            const statusClass = trade.status === 'OPEN' ? 'status-open' : 'status-closed';
+            const typeColor = trade.type === 'UP' ? 'color: var(--color-profit)' : 'color: var(--color-loss)';
+
+            tr.innerHTML = `
+                <td>${trade.time}</td>
+                <td>#${trade.id}</td>
+                <td style="${typeColor}"><b>${trade.type}</b></td>
+                <td>$${trade.stake.toFixed(2)}</td>
+                <td>${trade.multiplier}x</td>
+                <td>${parseFloat(trade.entry).toFixed(4)}</td>
+                <td><span class="${statusClass}">${trade.status}</span></td>
+                <td class="pnl-value ${pnlColor}">${pnlText}</td>
+            `;
+            historyBody.appendChild(tr);
+        });
+    }
+
+    function addTradeToHistory(contractId, direction, stake, multiplier, entryPrice) {
+        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+        if(tradeHistory.find(t => t.id === contractId)) return;
+        
+        tradeHistory.push({
+            id: contractId, time: time, type: direction.toUpperCase(),
+            stake: stake, multiplier: multiplier, entry: entryPrice,
+            status: 'OPEN', pnl: 0
+        });
+
+        // Limit to 50 items so localStorage doesn't bloat
+        if(tradeHistory.length > 50) tradeHistory.shift();
+        
+        saveHistory();
+        renderHistory();
+    }
+
+    function updateTradeHistory(contractId, pnl, status) {
+        const trade = tradeHistory.find(t => t.id === contractId);
+        if (trade) {
+            trade.pnl = parseFloat(pnl);
+            if (status) trade.status = status;
+            
+            // Avoid extreme disk writes, but it's fine for small array
+            if (status === 'CLOSED') {
+                 saveHistory();
+            }
+            renderHistory();
+        }
+    }
+
     function showCooldown(durationMs) {
         cooldownOverlay.style.display = 'flex';
         let remaining = Math.ceil(durationMs / 1000);
@@ -265,6 +334,14 @@
             const result = await Strategy.executeTrade(direction, prices);
             log(`✅ CONTRACT OPENED: #${result.contract_id} | Price: $${result.buy_price}`, 'success');
 
+            addTradeToHistory(
+                result.contract_id, 
+                direction, 
+                Strategy.CONFIG.stake, 
+                Strategy.CONFIG.multiplier, 
+                result.buy_price
+            );
+
             // Enable emergency controls
             panicBtn.disabled = false;
             breakEvenBtn.disabled = false;
@@ -322,6 +399,7 @@
             if (contract.status === 'sold' || contract.is_sold) {
                 const profit = parseFloat(contract.profit) || 0;
                 Strategy.recordTradeResult(profit);
+                updateTradeHistory(contract.contract_id, profit, 'CLOSED');
 
                 if (profit >= 0) {
                     log(`💰 CONTRACT CLOSED: +$${profit.toFixed(2)} PROFIT`, 'success');
@@ -345,6 +423,7 @@
                 }
             } else {
                 Strategy.manageContract(contract);
+                updateTradeHistory(contract.contract_id, contract.profit, 'OPEN');
             }
         });
 
@@ -537,6 +616,16 @@
             log('Log cleared', 'info');
         });
 
+        if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', () => {
+                // Keep only OPEN trades to avoid breaking running logic
+                tradeHistory = tradeHistory.filter(t => t.status === 'OPEN');
+                saveHistory();
+                renderHistory();
+                log('Trade history cleared (closed trades removed).', 'info');
+            });
+        }
+
         // Indicator toggles
         indBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -562,6 +651,7 @@
     // ========== INIT ==========
     function init() {
         bindEvents();
+        renderHistory();
         log('🚀 DerivMULT Trading Bot v1.0 initialized', 'info');
         
         const envToken = import.meta.env.VITE_DERIV_API_TOKEN;
