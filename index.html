@@ -235,23 +235,33 @@
                     <div class="control-row">
                         <div class="control-group" style="width: 100%;">
                             <label>Trading Mode</label>
-                            <select id="tradingModeSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid var(--border-color); border-radius: 4px; font-weight: bold;">
+                            <select id="tradingModeSelect" class="styled-select">
                                 <option value="MULT">📈 Multiplier (400x)</option>
                                 <option value="ACCU" selected>🌊 Accumulator</option>
                             </select>
                         </div>
                     </div>
                     <!-- Growth Rate Selector (Solo para ACCU) -->
-                    <div class="control-row" id="growthRateContainer" style="margin-bottom: 12px;">
+                    <div class="control-row" id="growthRateContainer">
                         <div class="control-group" style="width: 100%;">
                             <label>Growth Rate (Accumulator)</label>
-                            <select id="accuGrowthRateSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+                            <select id="accuGrowthRateSelect" class="styled-select">
                                 <option value="0.01">1% (Menor Riesgo, Más Lento)</option>
                                 <option value="0.02">2% (Bajo Riesgo)</option>
                                 <option value="0.03">3% (Equilibrado)</option>
                                 <option value="0.04">4% (Moderado-Alto)</option>
                                 <option value="0.05" selected>5% (Alto Riesgo, Rápido)</option>
                             </select>
+                        </div>
+                    </div>
+                    <!-- Max Ticks (Solo para ACCU) -->
+                    <div class="control-row" id="maxTicksContainer">
+                        <div class="control-group" style="width: 100%;">
+                            <label>Take Profit (Ticks)</label>
+                            <div class="input-with-icon">
+                                <input type="number" id="accuMaxTicksInput" class="styled-input" value="10" min="2" max="100">
+                                <span class="input-suffix">Ticks</span>
+                            </div>
                         </div>
                     </div>
                     <div class="control-row">

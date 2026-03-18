@@ -905,6 +905,48 @@ input::placeholder {
     border-radius: var(--radius-sm);
 }
 
+.styled-select, .styled-input {
+    width: 100%;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.3s ease;
+    cursor: pointer;
+}
+
+.styled-input {
+    cursor: text;
+}
+
+.styled-select:focus, .styled-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.input-with-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-icon .styled-input {
+    padding-right: 50px;
+}
+
+.input-suffix {
+    position: absolute;
+    right: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    pointer-events: none;
+}
+
 /* Bot Action Buttons */
 .bot-controls {
     display: flex;

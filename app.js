@@ -82,6 +82,8 @@
     const accuGrowthRateSelect = $('#accuGrowthRateSelect');
     const growthRateContainer = $('#growthRateContainer');
     const multiplierLabelDisplay = $('#multiplierLabelDisplay');
+    const maxTicksContainer = $('#maxTicksContainer');
+    const accuMaxTicksInput = $('#accuMaxTicksInput');
 
     // Indicator toggles
     const indBtns = $$('.ind-btn');
@@ -672,10 +674,12 @@
                 
                 if (mode === 'ACCU') {
                     if (growthRateContainer) growthRateContainer.style.display = 'flex';
+                    if (maxTicksContainer) maxTicksContainer.style.display = 'flex';
                     if (rightPanelMultiplierLabel) rightPanelMultiplierLabel.textContent = 'Growth';
                     if (rightPanelMultiplierValue) rightPanelMultiplierValue.textContent = (Strategy.CONFIG.accuGrowthRate * 100) + '%';
                 } else {
                     if (growthRateContainer) growthRateContainer.style.display = 'none';
+                    if (maxTicksContainer) maxTicksContainer.style.display = 'none';
                     if (rightPanelMultiplierLabel) rightPanelMultiplierLabel.textContent = 'Multiplier';
                     if (rightPanelMultiplierValue) rightPanelMultiplierValue.textContent = Strategy.CONFIG.multiplier + 'x';
                 }
@@ -696,6 +700,16 @@
                 });
                 // Initialize growth rate
                 Strategy.CONFIG.accuGrowthRate = parseFloat(accuGrowthRateSelect.value);
+            }
+
+            if (accuMaxTicksInput) {
+                accuMaxTicksInput.addEventListener('change', (e) => {
+                    let ticks = parseInt(e.target.value);
+                    if (ticks < 2) ticks = 2; // Minimo 2
+                    Strategy.CONFIG.accuMaxTicks = ticks;
+                    log(`Accumulator Max Ticks set to: ${ticks}`, 'info');
+                });
+                Strategy.CONFIG.accuMaxTicks = parseInt(accuMaxTicksInput.value);
             }
 
             // Init default

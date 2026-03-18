@@ -19,6 +19,7 @@ const Strategy = (() => {
         stake: 2.00,
         multiplier: 400,
         accuGrowthRate: 0.05, // 5% por tick en acumuladores
+        accuMaxTicks: 10, // Cuantos ticks ganar antes de vender automático
 
         // SMA Periods
         smaFast: 20,
@@ -332,6 +333,12 @@ const Strategy = (() => {
                         panicSell(); // Vender de emergencia conformándonse con lo acumulado
                         return { profit, action: 'Anomalía de Barrera (Emergency Sell)' };
                     }
+                }
+                
+                // Max Ticks Profit (Target alcanzado)
+                if (contract.tick_count && contract.tick_count >= CONFIG.accuMaxTicks) {
+                    panicSell();
+                    return { profit, action: `Target Ticks Alcanzado (${contract.tick_count})` };
                 }
             }
         } else {
