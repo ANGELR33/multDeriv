@@ -47,7 +47,7 @@ const Strategy = (() => {
 
         // ACCU Dynamic Management
         accuDangerDistance: 0.05, // Vender si la barrera está muy cerca
-        accuLossPenaltyCooldown: 1800000, // 30 mins si un Accumulator estalla
+        accuLossPenaltyCooldown: 5000, // 5 segundos, buscar rápido otra oportunidad
 
         // Dynamic Management
         panicSellSeconds: 45,             
@@ -57,12 +57,12 @@ const Strategy = (() => {
         trailingStopTarget: 0.10,
 
         // Damage Control
-        cooldownWinMs: 120000,     // 2 minutos
-        cooldownLossMs: 900000,    // 15 minutos
-        maxDailyProfit: 2.00,      // Meta +$2.00
-        maxDailyLoss: 5.00,        // Límite -$5.00
+        cooldownWinMs: 2000,     // 2 segundos (solo para limpiar variables y evitar gatillo doble)
+        cooldownLossMs: 4000,    // 4 segundos para un respiro
+        maxDailyProfit: 5.00,      // Meta +$5.00
+        maxDailyLoss: 10.00,        // Límite -$10.00
         accountProtectionMinBalance: 95.00, 
-        maxDailyTrades: 15,
+        maxDailyTrades: 99,
 
         minTicksForAnalysis: 55, 
         
@@ -397,18 +397,17 @@ const Strategy = (() => {
 
         if (pnl >= 0) {
             state.wins++;
-            state.cooldownUntil = Date.now() + CONFIG.cooldownWinMs; // 2 min
-            state.cooldownReason = 'Ganada -> 2 mins';
+            state.cooldownUntil = Date.now() + CONFIG.cooldownWinMs; 
+            state.cooldownReason = 'Ganada -> Next Scan';
         } else {
             state.losses++;
             state.dailyLoss += Math.abs(pnl);
             if (CONFIG.tradingMode === 'ACCU') {
-                // ACUMMULATOR PUNITIVE COOLDOWN (30 mins)
                 state.cooldownUntil = Date.now() + CONFIG.accuLossPenaltyCooldown; 
-                state.cooldownReason = 'Perdida ACCU -> 30 mins';
+                state.cooldownReason = 'Perdida ACCU -> Recuperando Datos';
             } else {
-                state.cooldownUntil = Date.now() + CONFIG.cooldownLossMs; // 15 min
-                state.cooldownReason = 'Perdida MULT -> 15 mins';
+                state.cooldownUntil = Date.now() + CONFIG.cooldownLossMs; 
+                state.cooldownReason = 'Perdida MULT -> Recuperando Datos';
             }
         }
 

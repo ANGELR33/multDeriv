@@ -273,20 +273,30 @@
     }
 
     function showCooldown(durationMs) {
-        cooldownOverlay.style.display = 'flex';
-        let remaining = Math.ceil(durationMs / 1000);
-
-        const interval = setInterval(() => {
-            remaining--;
-            cooldownTimer.textContent = remaining + 's';
-            if (remaining <= 0) {
-                clearInterval(interval);
-                cooldownOverlay.style.display = 'none';
-                Strategy.state.phase = 'SCANNING';
-                log('Cooldown ended. Resuming scanning...', 'info');
-                updateStats();
+        // Not block screen anymore, just wait internal variable
+        setTimeout(() => {
+            if(Strategy.state.phase === 'COOLDOWN') {
+               Strategy.state.phase = 'SCANNING';
+               log('Scanning for next opportunity...', 'info');
+               updateStats();
             }
-        }, 1000);
+        }, durationMs);
+    }
+    
+    function showResultToast(profit) {
+        const toast = document.createElement('div');
+        toast.className = `trade-toast ${profit >= 0 ? 'toast-win' : 'toast-loss'}`;
+        toast.innerHTML = profit >= 0 
+            ? `<h2>🎉 WIN! +$${profit.toFixed(2)}</h2><p>Resuming scan...</p>`
+            : `<h2>❌ LOSS! -$${Math.abs(profit).toFixed(2)}</h2><p>Analyzing conditions...</p>`;
+            
+        document.body.appendChild(toast);
+        
+        // Remove after 2.5s
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 1000);
+        }, 1500);
     }
 
     // ========== BOT LOOP ==========
@@ -422,6 +432,8 @@
                 } else {
                     log(`💸 CONTRACT CLOSED: -$${Math.abs(profit).toFixed(2)} LOSS`, 'error');
                 }
+                
+                showResultToast(profit);
 
                 // Disable emergency controls
                 panicBtn.disabled = true;
