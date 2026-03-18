@@ -3,50 +3,52 @@
    ============================================ */
 
 :root {
-    /* Core Colors */
-    --bg-primary: #0a0e17;
-    --bg-secondary: #111827;
-    --bg-card: #1a1f2e;
-    --bg-card-hover: #222838;
-    --bg-input: #151b2b;
+    /* Core Colors - Sleek Black Theme */
+    --bg-primary: #02040a;
+    --bg-secondary: #050810;
+    --bg-card: #0a0e17;
+    --bg-card-hover: #101623;
+    --bg-input: #080d15;
 
-    /* Accent Colors */
-    --accent-primary: #00d4aa;
-    --accent-secondary: #7b61ff;
-    --accent-tertiary: #3b82f6;
-    --accent-gradient: linear-gradient(135deg, #00d4aa, #7b61ff);
+    /* Accent Colors - Professional Blue & Green */
+    --accent-primary: #00d4aa; /* Emerald Green */
+    --accent-secondary: #00a3ff; /* Professional Blue */
+    --accent-tertiary: #1e3a8a;
+    --accent-gradient: linear-gradient(135deg, #00d4aa, #00a3ff);
 
     /* Semantic Colors */
     --color-profit: #00e676;
-    --color-loss: #ff5252;
-    --color-warning: #ffab40;
-    --color-info: #40c4ff;
+    --color-loss: #ff3b3b;
+    --color-warning: #ffaa00;
+    --color-info: #00a3ff;
 
     /* Text */
-    --text-primary: #f0f4f8;
-    --text-secondary: #8892a4;
-    --text-muted: #4a5568;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
 
     /* Borders */
-    --border-color: rgba(255, 255, 255, 0.06);
-    --border-glow: rgba(0, 212, 170, 0.3);
+    --border-color: rgba(255, 255, 255, 0.05);
+    --border-glow: rgba(0, 163, 255, 0.2);
 
     /* Spacing */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 20px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 24px;
 
-    /* Glass */
-    --glass-bg: rgba(26, 31, 46, 0.85);
+    /* Glassmorphism */
+    --glass-bg: rgba(10, 14, 23, 0.4);
     --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-blur: blur(20px);
+    --glass-highlight: rgba(255, 255, 255, 0.02);
+    --glass-blur: blur(24px);
 
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 30px rgba(0, 212, 170, 0.15);
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 0 40px rgba(0, 163, 255, 0.15);
+    --shadow-glow-active: 0 0 60px rgba(0, 212, 170, 0.2);
 }
 
 /* ============ Global Reset ============ */
@@ -57,8 +59,13 @@
 }
 
 html, body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-primary);
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: -1px -1px;
     color: var(--text-primary);
     height: 100%;
     overflow: hidden;
@@ -94,7 +101,9 @@ html, body {
 .modal-card {
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-lg), inset 0 1px 0 var(--glass-highlight);
     border-radius: var(--radius-xl);
     padding: 48px 40px;
     width: 440px;
@@ -914,7 +923,7 @@ input::placeholder {
 .btn-action {
     flex: 1;
     padding: 12px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 13px;
     font-weight: 700;
     border: none;
