@@ -35,6 +35,13 @@ const Chart = (() => {
         atr: true,
     };
 
+    const tradeMarkers = [];
+
+    function addTradeMarker(type, price, isWin, tickIndex) {
+        tradeMarkers.push({ type, price, isWin, tickIndex });
+        if (tradeMarkers.length > 50) tradeMarkers.shift();
+    }
+
     function init() {
         priceCanvas = document.getElementById('priceChart');
         rsiCanvas = document.getElementById('rsiChart');
@@ -175,6 +182,44 @@ const Chart = (() => {
         priceCtx.font = 'bold 10px JetBrains Mono, monospace';
         priceCtx.textAlign = 'center';
         priceCtx.fillText(displayPrices[displayPrices.length - 1].toFixed(4), w - padding.right / 2 + 1, lastY + 4);
+
+        // --- Active Trade Line ---
+        if (window.Strategy && window.Strategy.state.phase === 'MANAGING' && window.Strategy.state.activeContract && window.Strategy.state.activeContract.entry_spot) {
+            const entrySpot = parseFloat(window.Strategy.state.activeContract.entry_spot);
+            const entryY = py(entrySpot);
+            
+            priceCtx.beginPath();
+            priceCtx.setLineDash([4, 4]);
+            priceCtx.strokeStyle = '#00a3ff'; // Info blue
+            priceCtx.moveTo(padding.left, entryY);
+            priceCtx.lineTo(w - padding.right, entryY);
+            priceCtx.stroke();
+            priceCtx.setLineDash([]);
+            
+            priceCtx.fillStyle = '#00a3ff';
+            priceCtx.font = 'bold 10px JetBrains Mono, monospace';
+            priceCtx.textAlign = 'left';
+            priceCtx.fillText('ENTRY ' + entrySpot.toFixed(4), padding.left + 5, entryY - 5);
+        }
+
+        // --- Trade Markers (Entry/Exit) ---
+        tradeMarkers.forEach(marker => {
+            const offsetFromEnd = allPrices.length - 1 - marker.tickIndex;
+            const displayIndex = displayPrices.length - 1 - offsetFromEnd;
+            
+            if (displayIndex >= 0 && displayIndex < displayPrices.length) {
+                const mx = px(displayIndex);
+                const my = py(marker.price);
+                
+                priceCtx.beginPath();
+                priceCtx.arc(mx, my, 5, 0, Math.PI * 2);
+                priceCtx.fillStyle = marker.type === 'ENTRY' ? '#00a3ff' : (marker.isWin ? '#00e676' : '#ff5252');
+                priceCtx.fill();
+                priceCtx.strokeStyle = '#0a0e17';
+                priceCtx.lineWidth = 2;
+                priceCtx.stroke();
+            }
+        });
 
         // SMA Lines
         if (visible.sma20) {
@@ -360,5 +405,6 @@ const Chart = (() => {
         toggleIndicator,
         resizeAll,
         visible,
+        addTradeMarker
     };
 })();

@@ -260,6 +260,7 @@ const Strategy = (() => {
         state.contractStartTime = Date.now();
         state.breakEvenMoved = false;
         state.trailingMoved = false;
+        state.entryMarked = false; // New flag for chart marking
         state.manualStopLoss = -stopLoss; // Inicializado en -$1.00 USD
         state.highestProfit = 0;
 

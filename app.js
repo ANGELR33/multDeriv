@@ -427,8 +427,18 @@
 
             updateContractPanel(contract);
 
+            // Mark entry if not marked
+            if (contract.entry_spot && !Strategy.state.entryMarked && Strategy.state.phase === 'MANAGING') {
+                Strategy.state.entryMarked = true;
+                Chart.addTradeMarker('ENTRY', parseFloat(contract.entry_spot), null, prices.length - 1);
+            }
+
             if (contract.status === 'sold' || contract.is_sold) {
                 const profit = parseFloat(contract.profit) || 0;
+                
+                const currentPrice = prices[prices.length - 1];
+                const exitSpot = parseFloat(contract.sell_spot || currentPrice);
+                Chart.addTradeMarker('EXIT', exitSpot, profit >= 0, prices.length - 1);
                 Strategy.recordTradeResult(profit);
                 updateTradeHistory(contract.contract_id, profit, 'CLOSED');
 
