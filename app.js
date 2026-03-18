@@ -79,6 +79,9 @@
     
     // Trading Mode Toggle
     const tradingModeSelect = $('#tradingModeSelect');
+    const accuGrowthRateSelect = $('#accuGrowthRateSelect');
+    const growthRateContainer = $('#growthRateContainer');
+    const multiplierLabelDisplay = $('#multiplierLabelDisplay');
 
     // Indicator toggles
     const indBtns = $$('.ind-btn');
@@ -655,30 +658,48 @@
         }
         
         if (tradingModeSelect) {
-            tradingModeSelect.addEventListener('change', (e) => {
-                Strategy.CONFIG.tradingMode = e.target.value;
-                log(`Modo cambiado a: ${e.target.value}`, 'warning');
+            function updateModeUI(mode) {
+                // Update strategy config
+                Strategy.CONFIG.tradingMode = mode;
                 
                 // Actualizar labels de la UI
-                const modeLabel = e.target.value === 'ACCU' ? 'FLAT MARKET SCAN' : 'TREND TREND SCAN';
+                const modeLabel = mode === 'ACCU' ? 'FLAT MARKET SCAN' : 'TREND TREND SCAN';
                 document.querySelector('.signal-analysis h3').textContent = `🎯 ${modeLabel}`;
                 
                 // Actualizar panel lateral derecho visualmente
                 const rightPanelMultiplierLabel = document.querySelectorAll('.right-panel .control-group label')[2];
                 const rightPanelMultiplierValue = document.querySelectorAll('.right-panel .control-group .value-display')[1];
-                if (rightPanelMultiplierLabel && rightPanelMultiplierValue) {
-                    if (e.target.value === 'ACCU') {
-                        rightPanelMultiplierLabel.textContent = 'Growth';
-                        rightPanelMultiplierValue.textContent = (Strategy.CONFIG.accuGrowthRate * 100) + '%';
-                    } else {
-                        rightPanelMultiplierLabel.textContent = 'Multiplier';
-                        rightPanelMultiplierValue.textContent = Strategy.CONFIG.multiplier + 'x';
-                    }
+                
+                if (mode === 'ACCU') {
+                    if (growthRateContainer) growthRateContainer.style.display = 'flex';
+                    if (rightPanelMultiplierLabel) rightPanelMultiplierLabel.textContent = 'Growth';
+                    if (rightPanelMultiplierValue) rightPanelMultiplierValue.textContent = (Strategy.CONFIG.accuGrowthRate * 100) + '%';
+                } else {
+                    if (growthRateContainer) growthRateContainer.style.display = 'none';
+                    if (rightPanelMultiplierLabel) rightPanelMultiplierLabel.textContent = 'Multiplier';
+                    if (rightPanelMultiplierValue) rightPanelMultiplierValue.textContent = Strategy.CONFIG.multiplier + 'x';
                 }
+            }
+            
+            tradingModeSelect.addEventListener('change', (e) => {
+                log(`Modo de trading cambiado a: ${e.target.value}`, 'warning');
+                updateModeUI(e.target.value);
             });
+            
+            // Listen for Growth Rate changes
+            if (accuGrowthRateSelect) {
+                accuGrowthRateSelect.addEventListener('change', (e) => {
+                    const rate = parseFloat(e.target.value);
+                    Strategy.CONFIG.accuGrowthRate = rate;
+                    log(`Accumulator Growth Rate changed to: ${rate * 100}%`, 'info');
+                    updateModeUI(Strategy.CONFIG.tradingMode); // refresh labels
+                });
+                // Initialize growth rate
+                Strategy.CONFIG.accuGrowthRate = parseFloat(accuGrowthRateSelect.value);
+            }
+
             // Init default
-            Strategy.CONFIG.tradingMode = tradingModeSelect.value;
-            tradingModeSelect.dispatchEvent(new Event('change'));
+            updateModeUI(tradingModeSelect.value);
         }
 
         // Indicator toggles

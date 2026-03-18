@@ -237,7 +237,20 @@
                             <label>Trading Mode</label>
                             <select id="tradingModeSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid var(--border-color); border-radius: 4px; font-weight: bold;">
                                 <option value="MULT">📈 Multiplier (400x)</option>
-                                <option value="ACCU" selected>🌊 Accumulator (5% Growth)</option>
+                                <option value="ACCU" selected>🌊 Accumulator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <!-- Growth Rate Selector (Solo para ACCU) -->
+                    <div class="control-row" id="growthRateContainer" style="margin-bottom: 12px;">
+                        <div class="control-group" style="width: 100%;">
+                            <label>Growth Rate (Accumulator)</label>
+                            <select id="accuGrowthRateSelect" style="width: 100%; padding: 8px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+                                <option value="0.01">1% (Menor Riesgo, Más Lento)</option>
+                                <option value="0.02">2% (Bajo Riesgo)</option>
+                                <option value="0.03">3% (Equilibrado)</option>
+                                <option value="0.04">4% (Moderado-Alto)</option>
+                                <option value="0.05" selected>5% (Alto Riesgo, Rápido)</option>
                             </select>
                         </div>
                     </div>
@@ -247,8 +260,8 @@
                             <div class="value-display">$2.00</div>
                         </div>
                         <div class="control-group">
-                            <label>Multiplier</label>
-                            <div class="value-display">400x</div>
+                            <label>Multiplier/Growth</label>
+                            <div class="value-display" id="multiplierLabelDisplay">400x</div>
                         </div>
                     </div>
                     <div class="control-row">
