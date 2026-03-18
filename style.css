@@ -3,43 +3,43 @@
    ============================================ */
 
 :root {
-    /* Core Colors - Professional Trading Dark Theme (Binance/TradingView Style) */
-    --bg-primary: #0b0e11;
-    --bg-secondary: #181a20;
-    --bg-card: #181a20;
-    --bg-card-hover: #2b3139;
-    --bg-input: #2b3139;
+    /* Core Colors - Sleek Black Theme restored for background */
+    --bg-primary: #02040a;
+    --bg-secondary: #0a0e17; /* Solid dark panels */
+    --bg-card: #0a0e17;
+    --bg-card-hover: #101623;
+    --bg-input: #080d15;
 
-    /* Accent Colors - High Contrast */
-    --accent-primary: #fcd535; /* Trading Yellow */
-    --accent-secondary: #0ecb81; /* Trading Green */
-    --accent-tertiary: #f6465d; /* Trading Red */
-    --accent-gradient: #fcd535; /* Removed gradient for solid industrial text */
+    /* Accent Colors - Restored vibrant blue/green */
+    --accent-primary: #00d4aa;
+    --accent-secondary: #00a3ff;
+    --accent-tertiary: #1e3a8a;
+    --accent-gradient: linear-gradient(135deg, #00d4aa, #00a3ff);
 
-    /* Semantic Colors */
+    /* Semantic Colors - High Contrast for buttons */
     --color-profit: #0ecb81;
     --color-loss: #f6465d;
-    --color-warning: #fcd535;
-    --color-info: #3375bb;
+    --color-warning: #ffaa00;
+    --color-info: #00a3ff;
 
     /* Text */
-    --text-primary: #eaecef;
-    --text-secondary: #848e9c;
-    --text-muted: #5e6673;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #475569;
 
     /* Borders */
-    --border-color: #2b3139;
-    --border-glow: transparent;
+    --border-color: rgba(255, 255, 255, 0.05);
+    --border-glow: rgba(0, 163, 255, 0.2);
 
-    /* Spacing - Sharper Radii for Pro UI */
+    /* Spacing - Sharper Radii (Kept from Trading UI) */
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
     --radius-xl: 12px;
 
     /* Solid Panels (Replacing Glassmorphism) */
-    --glass-bg: #181a20;
-    --glass-border: #2b3139;
+    --glass-bg: #0a0e17;
+    --glass-border: rgba(255, 255, 255, 0.05);
     --glass-highlight: transparent;
     --glass-blur: blur(0px); /* Feature disabled for solid UI */
 
@@ -47,7 +47,7 @@
     --shadow-sm: none;
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-    --shadow-glow: none;
+    --shadow-glow: 0 0 40px rgba(0, 163, 255, 0.15);
     --shadow-glow-active: none;
 }
 
@@ -61,6 +61,11 @@
 html, body {
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-primary);
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    background-position: -1px -1px;
     color: var(--text-primary);
     height: 100%;
     overflow: hidden;

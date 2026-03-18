@@ -10,21 +10,21 @@ const Chart = (() => {
     // Display config
     const DISPLAY_TICKS = 150;
     const COLORS = {
-        price: '#0ecb81', // Trading Green
-        sma20: '#fcd535', // Trading Yellow
-        sma50: '#3375bb', // Trading Blue
-        grid: '#2b3139',
-        gridText: '#848e9c',
-        rsiLine: '#fcd535',
-        rsiOverbought: 'rgba(246,70,93,0.3)',
-        rsiOversold: 'rgba(14,203,129,0.3)',
-        rsiZone: 'rgba(255,255,255,0.02)',
-        atrLine: '#848e9c',
-        atrFill: 'rgba(132,142,156,0.1)',
-        crosshairLine: '#5e6673',
-        priceFill: 'rgba(14,203,129,0.08)',
-        profitLine: '#0ecb81',
-        lossLine: '#f6465d',
+        price: '#00d4aa',
+        sma20: '#7b61ff',
+        sma50: '#ff6d00',
+        grid: 'rgba(255,255,255,0.04)',
+        gridText: 'rgba(255,255,255,0.2)',
+        rsiLine: '#40c4ff',
+        rsiOverbought: 'rgba(255,82,82,0.3)',
+        rsiOversold: 'rgba(0,230,118,0.3)',
+        rsiZone: 'rgba(64,196,255,0.08)',
+        atrLine: '#ffab40',
+        atrFill: 'rgba(255,171,64,0.08)',
+        crosshairLine: 'rgba(255,255,255,0.1)',
+        priceFill: 'rgba(0,212,170,0.06)',
+        profitLine: '#00e676',
+        lossLine: '#ff5252',
     };
 
     // Visible indicators
