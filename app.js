@@ -340,7 +340,11 @@
     }
 
     async function executeTrade(direction) {
-        log(`⚡ EXECUTING: ${direction.toUpperCase()} trade — $${Strategy.CONFIG.stake} at ${Strategy.CONFIG.multiplier}x`, 'trade');
+        const leverageLabel = Strategy.CONFIG.tradingMode === 'ACCU' 
+            ? (Strategy.CONFIG.accuGrowthRate * 100) + '% Growth' 
+            : Strategy.CONFIG.multiplier + 'x';
+            
+        log(`⚡ EXECUTING: ${direction.toUpperCase()} trade — $${Strategy.CONFIG.stake} | [${leverageLabel}]`, 'trade');
 
         try {
             const result = await Strategy.executeTrade(direction, prices);
@@ -350,7 +354,7 @@
                 result.contract_id, 
                 direction, 
                 Strategy.CONFIG.stake, 
-                Strategy.CONFIG.multiplier, 
+                leverageLabel, // pass formatted label
                 result.buy_price
             );
 
@@ -646,9 +650,23 @@
                 // Actualizar labels de la UI
                 const modeLabel = e.target.value === 'ACCU' ? 'FLAT MARKET SCAN' : 'TREND TREND SCAN';
                 document.querySelector('.signal-analysis h3').textContent = `🎯 ${modeLabel}`;
+                
+                // Actualizar panel lateral derecho visualmente
+                const rightPanelMultiplierLabel = document.querySelectorAll('.right-panel .control-group label')[2];
+                const rightPanelMultiplierValue = document.querySelectorAll('.right-panel .control-group .value-display')[1];
+                if (rightPanelMultiplierLabel && rightPanelMultiplierValue) {
+                    if (e.target.value === 'ACCU') {
+                        rightPanelMultiplierLabel.textContent = 'Growth';
+                        rightPanelMultiplierValue.textContent = (Strategy.CONFIG.accuGrowthRate * 100) + '%';
+                    } else {
+                        rightPanelMultiplierLabel.textContent = 'Multiplier';
+                        rightPanelMultiplierValue.textContent = Strategy.CONFIG.multiplier + 'x';
+                    }
+                }
             });
             // Init default
             Strategy.CONFIG.tradingMode = tradingModeSelect.value;
+            tradingModeSelect.dispatchEvent(new Event('change'));
         }
 
         // Indicator toggles
