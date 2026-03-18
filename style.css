@@ -3,52 +3,52 @@
    ============================================ */
 
 :root {
-    /* Core Colors - Sleek Black Theme */
-    --bg-primary: #02040a;
-    --bg-secondary: #050810;
-    --bg-card: #0a0e17;
-    --bg-card-hover: #101623;
-    --bg-input: #080d15;
+    /* Core Colors - Professional Trading Dark Theme (Binance/TradingView Style) */
+    --bg-primary: #0b0e11;
+    --bg-secondary: #181a20;
+    --bg-card: #181a20;
+    --bg-card-hover: #2b3139;
+    --bg-input: #2b3139;
 
-    /* Accent Colors - Professional Blue & Green */
-    --accent-primary: #00d4aa; /* Emerald Green */
-    --accent-secondary: #00a3ff; /* Professional Blue */
-    --accent-tertiary: #1e3a8a;
-    --accent-gradient: linear-gradient(135deg, #00d4aa, #00a3ff);
+    /* Accent Colors - High Contrast */
+    --accent-primary: #fcd535; /* Trading Yellow */
+    --accent-secondary: #0ecb81; /* Trading Green */
+    --accent-tertiary: #f6465d; /* Trading Red */
+    --accent-gradient: #fcd535; /* Removed gradient for solid industrial text */
 
     /* Semantic Colors */
-    --color-profit: #00e676;
-    --color-loss: #ff3b3b;
-    --color-warning: #ffaa00;
-    --color-info: #00a3ff;
+    --color-profit: #0ecb81;
+    --color-loss: #f6465d;
+    --color-warning: #fcd535;
+    --color-info: #3375bb;
 
     /* Text */
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #475569;
+    --text-primary: #eaecef;
+    --text-secondary: #848e9c;
+    --text-muted: #5e6673;
 
     /* Borders */
-    --border-color: rgba(255, 255, 255, 0.05);
-    --border-glow: rgba(0, 163, 255, 0.2);
+    --border-color: #2b3139;
+    --border-glow: transparent;
 
-    /* Spacing */
-    --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 24px;
+    /* Spacing - Sharper Radii for Pro UI */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 12px;
 
-    /* Glassmorphism */
-    --glass-bg: rgba(10, 14, 23, 0.4);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-highlight: rgba(255, 255, 255, 0.02);
-    --glass-blur: blur(24px);
+    /* Solid Panels (Replacing Glassmorphism) */
+    --glass-bg: #181a20;
+    --glass-border: #2b3139;
+    --glass-highlight: transparent;
+    --glass-blur: blur(0px); /* Feature disabled for solid UI */
 
-    /* Shadows */
-    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
-    --shadow-glow: 0 0 40px rgba(0, 163, 255, 0.15);
-    --shadow-glow-active: 0 0 60px rgba(0, 212, 170, 0.2);
+    /* Shadows - Flat UI */
+    --shadow-sm: none;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    --shadow-glow: none;
+    --shadow-glow-active: none;
 }
 
 /* ============ Global Reset ============ */
@@ -61,11 +61,6 @@
 html, body {
     font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--bg-primary);
-    background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    background-size: 30px 30px;
-    background-position: -1px -1px;
     color: var(--text-primary);
     height: 100%;
     overflow: hidden;
@@ -137,10 +132,7 @@ html, body {
 .modal-logo h1 {
     font-size: 28px;
     font-weight: 800;
-    background: var(--accent-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text-primary);
     letter-spacing: -0.5px;
 }
 
@@ -940,53 +932,47 @@ input::placeholder {
 }
 
 .btn-start {
-    background: linear-gradient(135deg, #00c853, #00e676);
-    color: #0a0e17;
-    box-shadow: 0 4px 15px rgba(0, 200, 83, 0.3);
+    background: var(--color-profit);
+    color: #fff;
 }
 
 .btn-start:hover:not(:disabled) {
+    background: #11a96f; /* Slightly darker green */
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(0, 200, 83, 0.4);
 }
 
 .btn-stop {
-    background: linear-gradient(135deg, #c62828, #ff5252);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(198, 40, 40, 0.3);
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
 }
 
 .btn-stop:hover:not(:disabled) {
+    background: var(--color-loss);
+    border-color: var(--color-loss);
+    color: #fff;
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(198, 40, 40, 0.4);
 }
 
 .btn-panic {
-    background: linear-gradient(135deg, #ff6d00, #ffab40);
-    color: #0a0e17;
-    box-shadow: 0 4px 15px rgba(255, 109, 0, 0.3);
+    background: var(--color-loss);
+    color: #fff;
 }
 
 .btn-panic:hover:not(:disabled) {
+    background: #d43b4d;
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(255, 109, 0, 0.4);
-    animation: panicPulse 0.5s ease-in-out;
-}
-
-@keyframes panicPulse {
-    0%, 100% { box-shadow: 0 6px 20px rgba(255, 109, 0, 0.4); }
-    50% { box-shadow: 0 6px 30px rgba(255, 109, 0, 0.6); }
 }
 
 .btn-breakeven {
-    background: linear-gradient(135deg, #1565c0, #42a5f5);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(21, 101, 192, 0.3);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
 }
 
 .btn-breakeven:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(21, 101, 192, 0.4);
+    background: var(--bg-card-hover);
+    border-color: var(--text-muted);
 }
 
 /* ============ CONTRACT PANEL ============ */
