@@ -267,6 +267,26 @@ const DerivWS = (() => {
     }
 
     /**
+     * Buy an Accumulator contract
+     */
+    function buyAccumulator(symbol, amount, growthRate = 0.05) {
+        const payload = {
+            buy: 1,
+            price: 100, // max price or stake equivalent
+            parameters: {
+                contract_type: 'ACCU',
+                symbol: symbol,
+                amount: amount,
+                currency: 'USD',
+                basis: 'stake',
+                growth_rate: growthRate
+            },
+        };
+
+        return sendAndWait(payload, 30000);
+    }
+
+    /**
      * Sell a contract
      * @param {number} contractId - Contract ID to sell
      */
@@ -346,6 +366,7 @@ const DerivWS = (() => {
         subscribeBalance,
         subscribeTransactions,
         buyMultiplier,
+        buyAccumulator,
         sellContract,
         subscribeOpenContract,
         updateContract,

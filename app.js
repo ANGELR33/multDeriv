@@ -76,6 +76,9 @@
     // History
     const historyBody = $('#historyBody');
     const clearHistoryBtn = $('#clearHistory');
+    
+    // Trading Mode Toggle
+    const tradingModeSelect = $('#tradingModeSelect');
 
     // Indicator toggles
     const indBtns = $$('.ind-btn');
@@ -633,6 +636,19 @@
                 renderHistory();
                 log('Trade history cleared (closed trades removed).', 'info');
             });
+        }
+        
+        if (tradingModeSelect) {
+            tradingModeSelect.addEventListener('change', (e) => {
+                Strategy.CONFIG.tradingMode = e.target.value;
+                log(`Modo cambiado a: ${e.target.value}`, 'warning');
+                
+                // Actualizar labels de la UI
+                const modeLabel = e.target.value === 'ACCU' ? 'FLAT MARKET SCAN' : 'TREND TREND SCAN';
+                document.querySelector('.signal-analysis h3').textContent = `🎯 ${modeLabel}`;
+            });
+            // Init default
+            Strategy.CONFIG.tradingMode = tradingModeSelect.value;
         }
 
         // Indicator toggles

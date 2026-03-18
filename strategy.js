@@ -11,10 +11,14 @@
 const Strategy = (() => {
     // ========== CONFIGURATION ==========
     const CONFIG = {
+        // Trading Mode
+        tradingMode: 'ACCU', // 'MULT' or 'ACCU'
+
         // Market & Contract
         symbol: 'R_10',
         stake: 2.00,
         multiplier: 400,
+        accuGrowthRate: 0.05, // 5% por tick en acumuladores
 
         // SMA Periods
         smaFast: 20,
@@ -40,6 +44,10 @@ const Strategy = (() => {
         fixedStopLoss: 1.00,       // SL máximo -$1.00
         fixedTakeProfit: 0.40,     // TP objetivo +$0.40
         dealCancellationDuration: '60m',
+
+        // ACCU Dynamic Management
+        accuDangerDistance: 0.05, // Vender si la barrera está muy cerca
+        accuLossPenaltyCooldown: 1800000, // 30 mins si un Accumulator estalla
 
         // Dynamic Management
         panicSellSeconds: 45,             
@@ -140,85 +148,96 @@ const Strategy = (() => {
         // 4. MOTOR DE INTELIGENCIA / FUZZY LOGIC V2 (Deep Analysis)
         // ==========================================
         let confidenceScore = 0;
+        let confirmed = false;
         
         // Obtenemos los nuevos indicadores IA
         const currentMACD = Indicators.macd(prices, CONFIG.macdFast, CONFIG.macdSlow, CONFIG.macdSignal);
         const currentBB = Indicators.bollingerBands(prices, CONFIG.bbPeriod, CONFIG.bbStdDev);
         const currentPrice = prices[prices.length - 1];
 
-        // --- FILTRO 1: Tendencia Mayor (SMA) [Max: 20 pts] ---
-        if (smaConfirmed && smaDirection) {
-            confidenceScore += 15;
-            // Si el precio actual está acompañando la tendencia alejándose de la media
-            if (smaDirection === 'up' && currentPrice > smaFast) confidenceScore += 5;
-            if (smaDirection === 'down' && currentPrice < smaFast) confidenceScore += 5;
-        }
-
-        // --- FILTRO 2: Fuerza Relativa (RSI) [Max: 20 pts] ---
-        if (rsiOk) {
-            confidenceScore += 10;
-            // Sweet spot direccional (45-55) o favoreciendo direccionalidad
-            if (smaDirection === 'up' && currentRSI > 50 && currentRSI < 65) confidenceScore += 10;
-            else if (smaDirection === 'down' && currentRSI < 50 && currentRSI > 35) confidenceScore += 10;
-            else confidenceScore += 5; // Aceptable pero no ideal
-        }
-
-        // --- FILTRO 3: Convergencia/Divergencia (MACD) [Max: 25 pts] ---
-        if (currentMACD !== null && smaDirection) {
-            let macdOk = false;
-            if (smaDirection === 'up' && currentMACD.histogram > 0) {
+        if (CONFIG.tradingMode === 'MULT') {
+            // LÓGICA MULTIPLICADOR ORIGINAL (Cazador de Tendencias)
+            // --- FILTRO 1: Tendencia Mayor (SMA) [Max: 20 pts] ---
+            if (smaConfirmed && smaDirection) {
                 confidenceScore += 15;
-                macdOk = true;
-            } else if (smaDirection === 'down' && currentMACD.histogram < 0) {
-                confidenceScore += 15;
-                macdOk = true;
+                if (smaDirection === 'up' && currentPrice > smaFast) confidenceScore += 5;
+                if (smaDirection === 'down' && currentPrice < smaFast) confidenceScore += 5;
             }
+
+            // --- FILTRO 2: Fuerza Relativa (RSI) [Max: 20 pts] ---
+            if (rsiOk) {
+                confidenceScore += 10;
+                if (smaDirection === 'up' && currentRSI > 50 && currentRSI < 65) confidenceScore += 10;
+                else if (smaDirection === 'down' && currentRSI < 50 && currentRSI > 35) confidenceScore += 10;
+                else confidenceScore += 5; 
+            }
+
+            // --- FILTRO 3: MACD [Max: 25 pts] ---
+            if (currentMACD !== null && smaDirection) {
+                let macdOk = false;
+                if (smaDirection === 'up' && currentMACD.histogram > 0) { confidenceScore += 15; macdOk = true; }
+                else if (smaDirection === 'down' && currentMACD.histogram < 0) { confidenceScore += 15; macdOk = true; }
+                if (macdOk && Math.abs(currentMACD.histogram) > 0.05) confidenceScore += 10;
+            }
+
+            // --- FILTRO 4: Bollinger [Max: 15 pts] ---
+            if (currentBB !== null && smaDirection) {
+                if (smaDirection === 'up' && currentPrice < currentBB.upper) confidenceScore += 15;
+                else if (smaDirection === 'down' && currentPrice > currentBB.lower) confidenceScore += 15;
+            }
+
+            // --- FILTRO 5: ATR Liquidez [Max: 10 pts] ---
+            if (atrOk) {
+                if (currentATR >= 0.005) confidenceScore += 10;
+            }
+
+            // --- FILTRO 6: Price Action 3 Ticks [Max: 10 pts] ---
+            if (prices.length >= 4 && smaDirection) {
+                const t1 = prices[prices.length - 2];
+                const t2 = prices[prices.length - 3];
+                if (smaDirection === 'up' && currentPrice > t1 && t1 >= t2) confidenceScore += 10;
+                else if (smaDirection === 'down' && currentPrice < t1 && t1 <= t2) confidenceScore += 10;
+            }
+
+            state.aiConfidence = Math.max(0, Math.min(100, confidenceScore));
+            confirmed = state.signals.sma && state.signals.rsi && state.signals.atr && state.aiConfidence >= CONFIG.minAIConfidence;
+        } else {
+            // LÓGICA ACUMULADOR (Buscando "Agua Estancada" y Lateralización Total)
+            smaDirection = 'flat'; // En accu no hay dirección "up" o "down"
             
-            // Fuerte momentum de cruce
-            if (macdOk && Math.abs(currentMACD.histogram) > 0.05) {
-                confidenceScore += 10;
+            // FILTRO 1: SMA Pegadas (Flat)
+            let isSmaFlat = false;
+            if (smaConfirmed) {
+                const diff = Math.abs(smaFast - smaSlow);
+                // Muy juntas
+                if (diff < 0.2) {
+                    confidenceScore += 30;
+                    isSmaFlat = true;
+                }
             }
-        }
+            state.signals.sma = isSmaFlat;
 
-        // --- FILTRO 4: Canal de Volatilidad (Bollinger) [Max: 15 pts] ---
-        if (currentBB !== null && smaDirection) {
-            // Evitar comprar si el precio ya rompió la banda superior (sobreextendido)
-            // Evitar vender si rompió la banda inferior.
-            const bandwidth = currentBB.upper - currentBB.lower;
-            
-            if (smaDirection === 'up' && currentPrice < currentBB.upper) {
-                confidenceScore += 15; // Aún hay espacio para subir
-            } else if (smaDirection === 'down' && currentPrice > currentBB.lower) {
-                confidenceScore += 15; // Aún hay espacio para caer
+            // FILTRO 2: RSI Estrictamente Neutro (45 a 55)
+            let isRsiNeutral = false;
+            if (currentRSI !== null && currentRSI >= 45 && currentRSI <= 55) {
+                confidenceScore += 30;
+                isRsiNeutral = true;
             }
-        }
+            state.signals.rsi = isRsiNeutral;
 
-        // --- FILTRO 5: Liquidez/Volatilidad Sana (ATR) [Max: 10 pts] ---
-        if (atrOk) {
-            if (currentATR >= 0.005) { // Liquidez sana
-                confidenceScore += 10;
-            } else {
-                confidenceScore += 0; // Mercado muy aburrido
+            // FILTRO 3: ATR Muerto (< 1.5)
+            let isAtrDead = false;
+            if (currentATR !== null && currentATR < 1.5) {
+                confidenceScore += 30;
+                isAtrDead = true;
+                // Bono por vela diminuta
+                if (currentATR < 0.8) confidenceScore += 10; 
             }
+            state.signals.atr = isAtrDead;
+
+            state.aiConfidence = Math.max(0, Math.min(100, confidenceScore));
+            confirmed = isSmaFlat && isRsiNeutral && isAtrDead && state.aiConfidence >= 80; // 80% exigencia accu
         }
-
-        // --- FILTRO 6: Price Action / Momentum de 3 Ticks [Max: 10 pts] ---
-        if (prices.length >= 4 && smaDirection) {
-            const t1 = prices[prices.length - 2];
-            const t2 = prices[prices.length - 3];
-            
-            if (smaDirection === 'up' && currentPrice > t1 && t1 >= t2) {
-                confidenceScore += 10;
-            } else if (smaDirection === 'down' && currentPrice < t1 && t1 <= t2) {
-                confidenceScore += 10;
-            }
-        }
-
-        // Aseguramos que el score se mantenga entre 0 y 100
-        state.aiConfidence = Math.max(0, Math.min(100, confidenceScore));
-
-        // El bot AHORA requiere que la "IA" confíe al menos en un % establecido
-        const confirmed = state.signals.sma && state.signals.rsi && state.signals.atr && state.aiConfidence >= CONFIG.minAIConfidence;
 
         return { confirmed, direction: smaDirection, signals: { ...state.signals }, rsi: currentRSI, atr: currentATR, aiConfidence: state.aiConfidence, macd: currentMACD };
     }
@@ -244,17 +263,23 @@ const Strategy = (() => {
         state.highestProfit = 0;
 
         try {
-            const result = await DerivWS.buyMultiplier(
-                CONFIG.symbol,
-                CONFIG.stake,
-                CONFIG.multiplier,
-                direction,
-                {
-                    deal_cancellation_duration: CONFIG.dealCancellationDuration,
-                    // NOTE: API doesn't allow stop_loss/take_profit if using deal_cancellation. 
-                    // Managed locally via 'manualStopLoss' and 'fixedTakeProfit'.
-                }
-            );
+            let result;
+            if (CONFIG.tradingMode === 'MULT') {
+                result = await DerivWS.buyMultiplier(
+                    CONFIG.symbol,
+                    CONFIG.stake,
+                    CONFIG.multiplier,
+                    direction,
+                    { deal_cancellation_duration: CONFIG.dealCancellationDuration }
+                );
+            } else {
+                // ACCUMULATOR
+                result = await DerivWS.buyAccumulator(
+                    CONFIG.symbol,
+                    CONFIG.stake,
+                    CONFIG.accuGrowthRate
+                );
+            }
 
             if (result.buy) {
                 state.contractId = result.buy.contract_id;
@@ -285,35 +310,55 @@ const Strategy = (() => {
             state.highestProfit = profit;
         }
 
-        // 1. Take Profit Fijo Manual (+$0.40)
+        // 1. Take Profit Fijo Manual (Mismo para ACCU y MULT = +$0.40)
         if (profit >= CONFIG.fixedTakeProfit) {
             panicSell();
-            return { profit, action: 'Take Profit Fijo' };
+            return { profit, action: 'Take Profit Fijo Alcanzado' };
         }
 
-        // 2. El Salvavidas (Segundo 45 a 60) perdiendo -$0.30
-        if (elapsedSeconds >= CONFIG.panicSellSeconds && elapsedSeconds <= 60 && profit <= CONFIG.panicSellLossThreshold) {
-            panicSell();
-            return { profit, action: 'Salvavidas (Segundo 45)' };
-        }
+        if (CONFIG.tradingMode === 'ACCU') {
+            // ===== GESTIÓN DE ACCUMULATOR =====
+            if (contract.current_spot && contract.high_barrier && contract.low_barrier) {
+                const currentSpot = parseFloat(contract.current_spot);
+                const hBarrier = parseFloat(contract.high_barrier);
+                const lBarrier = parseFloat(contract.low_barrier);
+                
+                // Distancia a las barreras. Si la anomalía acerca el precio a < 0.05% de la banda letal, huir.
+                const distHigh = (hBarrier - currentSpot) / currentSpot;
+                const distLow = (currentSpot - lBarrier) / currentSpot;
 
-        // 3. Break-Even (Ganancia +$0.20 -> SL $0.00)
-        if (profit >= CONFIG.breakEvenProfitThreshold && !state.breakEvenMoved) {
-            state.manualStopLoss = 0.00;
-            state.breakEvenMoved = true;
-            // Lo gestionamos de forma manual ya que deal_cancellation podría evitar actualizaciones API.
-        }
+                if (distHigh < 0.0001 || distLow < 0.0001) {
+                    if (profit > 0) {
+                        panicSell(); // Vender de emergencia conformándonse con lo acumulado
+                        return { profit, action: 'Anomalía de Barrera (Emergency Sell)' };
+                    }
+                }
+            }
+        } else {
+            // ===== GESTIÓN DE MULTIPLIER =====
+            // El Salvavidas (Segundo 45 a 60) perdiendo -$0.30
+            if (elapsedSeconds >= CONFIG.panicSellSeconds && elapsedSeconds <= 60 && profit <= CONFIG.panicSellLossThreshold) {
+                panicSell();
+                return { profit, action: 'Salvavidas (Segundo 45)' };
+            }
 
-        // 4. Trailing Stop Loss (Ganancia +$0.30 -> SL +$0.10)
-        if (profit >= CONFIG.trailingStopActivation && !state.trailingMoved) {
-            state.manualStopLoss = CONFIG.trailingStopTarget;
-            state.trailingMoved = true;
-        }
+            // Break-Even (Ganancia +$0.20 -> SL $0.00)
+            if (profit >= CONFIG.breakEvenProfitThreshold && !state.breakEvenMoved) {
+                state.manualStopLoss = 0.00;
+                state.breakEvenMoved = true;
+            }
 
-        // 5. Validar Stop Loss Dinámico Interno
-        if (state.manualStopLoss !== null && profit <= state.manualStopLoss) {
-            panicSell();
-            return { profit, action: 'Stop Loss Manual / Trailing' };
+            // Trailing Stop Loss (Ganancia +$0.30 -> SL +$0.10)
+            if (profit >= CONFIG.trailingStopActivation && !state.trailingMoved) {
+                state.manualStopLoss = CONFIG.trailingStopTarget;
+                state.trailingMoved = true;
+            }
+
+            // Validar Stop Loss Dinámico Interno
+            if (state.manualStopLoss !== null && profit <= state.manualStopLoss) {
+                panicSell();
+                return { profit, action: 'Stop Loss Manual / Trailing' };
+            }
         }
 
         return {
@@ -357,8 +402,14 @@ const Strategy = (() => {
         } else {
             state.losses++;
             state.dailyLoss += Math.abs(pnl);
-            state.cooldownUntil = Date.now() + CONFIG.cooldownLossMs; // 15 min
-            state.cooldownReason = 'Perdida -> 15 mins';
+            if (CONFIG.tradingMode === 'ACCU') {
+                // ACUMMULATOR PUNITIVE COOLDOWN (30 mins)
+                state.cooldownUntil = Date.now() + CONFIG.accuLossPenaltyCooldown; 
+                state.cooldownReason = 'Perdida ACCU -> 30 mins';
+            } else {
+                state.cooldownUntil = Date.now() + CONFIG.cooldownLossMs; // 15 min
+                state.cooldownReason = 'Perdida MULT -> 15 mins';
+            }
         }
 
         // Control de hibernación general
