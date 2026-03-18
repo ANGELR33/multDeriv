@@ -424,6 +424,10 @@
 
         DerivWS.on('onProposalOpenContract', (contract) => {
             if (!contract) return;
+            if (Strategy.state.contractId && contract.contract_id !== Strategy.state.contractId) {
+                // Ignore updates from old contracts that might still be sending data
+                return;
+            }
 
             updateContractPanel(contract);
 

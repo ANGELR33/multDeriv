@@ -263,6 +263,8 @@ const Strategy = (() => {
         state.entryMarked = false; // New flag for chart marking
         state.manualStopLoss = -stopLoss; // Inicializado en -$1.00 USD
         state.highestProfit = 0;
+        state.accuTicksPassed = 0; // Tick tracker for manual management
+        state.lastSpotTime = 0;
 
         try {
             let result;
@@ -336,10 +338,19 @@ const Strategy = (() => {
                     }
                 }
                 
+                // Manual tick counting (since tick_count field isn't reliable mid-trade in Deriv stream)
+                if (contract.current_spot_time && contract.current_spot_time > state.lastSpotTime) {
+                    if (state.lastSpotTime !== 0) {
+                        state.accuTicksPassed++;
+                    }
+                    state.lastSpotTime = contract.current_spot_time;
+                }
+                
                 // Max Ticks Profit (Target alcanzado)
-                if (contract.tick_count && contract.tick_count >= CONFIG.accuMaxTicks) {
+                const evaluatedTicks = contract.tick_count || state.accuTicksPassed;
+                if (evaluatedTicks >= CONFIG.accuMaxTicks) {
                     panicSell();
-                    return { profit, action: `Target Ticks Alcanzado (${contract.tick_count})` };
+                    return { profit, action: `Target Ticks Alcanzado (${evaluatedTicks})` };
                 }
             }
         } else {
